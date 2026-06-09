@@ -88,7 +88,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-Data-Engineering-Pipeline-ETL-on-AWS-6691ec9f
+          repository: OnsJabbes/terraform-Data-Engineering-Pipeline-ETL-on-AWS-edfb6330
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Configure AWS Credentials
