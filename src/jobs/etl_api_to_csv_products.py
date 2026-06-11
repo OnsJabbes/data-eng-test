@@ -103,6 +103,8 @@ def fetch_products(api_url: str) -> list[dict]:
     # ← différence clé : DummyJSON wrappe dans {"products": [...]}
     if isinstance(payload, dict) and "products" in payload:
         products = payload["products"]
+
+    #test 2nd push
         logger.info("DummyJSON response → %d products (total: %s)", len(products), payload.get("total"))
     elif isinstance(payload, list):
         # compatibilité FakeStore au cas où
