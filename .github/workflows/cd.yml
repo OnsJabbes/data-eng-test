@@ -1,11 +1,6 @@
 name: CD Pipeline
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**'
   workflow_dispatch:
 
 jobs:
@@ -84,6 +79,12 @@ jobs:
         run: |
           aws s3 cp src/jobs/etl_api_to_csv_products.py $S3_PATH_1
 
+      - name: Debug Config JSON
+        run: |
+          CONFIG_BUCKET="tfstate-data-engineering-pipeline-etl-on-aws-wei3vabm"
+          echo "=== config.json ==="
+          aws s3 cp s3://${CONFIG_BUCKET}/config.json - 2>&1 || echo "config.json NOT FOUND or empty"
+
       # ─────────────────────────────
       # 10. Trigger Glue Jobs + capturer les Run IDs
       # FIX: on récupère les RUN_ID pour que le smoke test surveille
@@ -143,6 +144,9 @@ jobs:
 
             if [ "$STATUS" != "SUCCEEDED" ]; then
               echo "❌ FAILED: $JOB_NAME ($RUN_ID) — état final: $STATUS"
+              echo "=== Glue Error Message ==="
+              aws glue get-job-run --job-name "$JOB_NAME" --run-id "$RUN_ID" \
+                --query 'JobRun.ErrorMessage' --output text 2>&1 || true
               return 1
             fi
 
