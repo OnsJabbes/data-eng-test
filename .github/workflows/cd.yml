@@ -22,7 +22,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-An-end-to-end-data-engineering-pipeline-782298e8
+          repository: OnsJabbes/terraform-An-end-to-end-data-engineering-pipeline-d815713f
           token: ${{ secrets.GH_TOKEN }}
           path: terraform
 
@@ -48,26 +48,14 @@ jobs:
       - name: Get Terraform Outputs
         working-directory: terraform/infra
         run: |
-          echo "S3_BUCKET_1=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_1=$(terraform output -raw glue_job_1_script_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_1=$(terraform output -raw glue_job_1_name)" >> $GITHUB_ENV
-
-          echo "S3_BUCKET_2=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_2=$(terraform output -raw glue_job_2_script_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_2=$(terraform output -raw glue_job_2_name)" >> $GITHUB_ENV
-
-          echo "S3_BUCKET_3=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_3=$(terraform output -raw glue_job_3_script_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_3=$(terraform output -raw glue_job_3_name)" >> $GITHUB_ENV
+          echo "S3_BUCKET_1=$(terraform output -raw glue_scripts_bucket_name)" >> $GITHUB_ENV
+          echo "S3_KEY_1=$(terraform output -raw glue_test_script_s3_uri)" >> $GITHUB_ENV
+          echo "GLUE_JOB_1=$(terraform output -raw glue_job_name)" >> $GITHUB_ENV
 
 
       - name: Build S3 path
         run: |
           echo "S3_PATH_1=$S3_KEY_1" >> $GITHUB_ENV
-
-          echo "S3_PATH_2=$S3_KEY_2" >> $GITHUB_ENV
-
-          echo "S3_PATH_3=$S3_KEY_3" >> $GITHUB_ENV
 
 
       - name: Build Glue dependencies
@@ -83,7 +71,7 @@ jobs:
 
       - name: Upload dependencies to S3
         run: |
-          aws s3 cp dependencies.zip s3://tfstate-an-end-to-end-data-engineering-pipeline-7mky0zp0/dependencies.zip
+          aws s3 cp dependencies.zip s3://tfstate-an-end-to-end-data-engineering-pipeline-ga271luq/dependencies.zip
 
       - name: Debug S3 path
         run: |
@@ -95,8 +83,22 @@ jobs:
       - name: Replace Glue script in S3
         run: |
           aws s3 cp src/jobs/etl_api_to_csv_products.py $S3_PATH_1
-          aws s3 cp src/jobs/etl_csv_to_rds.py $S3_PATH_2
-          aws s3 cp src/jobs/etl_sales.py $S3_PATH_3
+
+      # ─────────────────────────────
+      # 9b. Upload config.json — RDS connection info for Glue jobs
+      # ─────────────────────────────
+      - name: Upload config.json to S3
+        working-directory: terraform/infra
+        run: |
+          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-ga271luq"
+          DB_HOST=$(terraform output -raw rds_endpoint 2>/dev/null || terraform output -raw db_endpoint 2>/dev/null || echo '')
+          DB_NAME=$(terraform output -raw db_name 2>/dev/null || terraform output -raw rds_db_name 2>/dev/null || echo '')
+          DB_USER=$(terraform output -raw db_username 2>/dev/null || terraform output -raw rds_username 2>/dev/null || echo '')
+          DB_PASS=$(terraform output -raw db_password 2>/dev/null || terraform output -raw rds_password 2>/dev/null || echo '')
+          export DB_HOST DB_NAME DB_USER DB_PASS
+          python3 -c "import json,os; cfg={'host':os.getenv('DB_HOST',''),'dbname':os.getenv('DB_NAME',''),'user':os.getenv('DB_USER',''),'password':os.getenv('DB_PASS',''),'port':'5432'}; open('config.json','w').write(json.dumps(cfg,indent=2))"
+          aws s3 cp config.json s3://$CONFIG_BUCKET/config.json
+          echo '✅ config.json uploaded to S3'
 
       # ─────────────────────────────
       # 10. Trigger Glue Jobs + capturer les Run IDs
@@ -105,20 +107,14 @@ jobs:
       # ─────────────────────────────
       - name: Trigger Glue Jobs
         run: |
-          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-7mky0zp0"
+          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-ga271luq"
           CONFIG_PATH="s3://${CONFIG_BUCKET}/config.json"
           DEPS_PATH="s3://${CONFIG_BUCKET}/dependencies.zip"
 
           RUN1=$(aws glue start-job-run --job-name "$GLUE_JOB_1" --arguments '{"--CONFIG_PATH":"'"$CONFIG_PATH"'","--extra-py-files":"'"$DEPS_PATH"'"}' --query "JobRunId" --output text)
           echo "RUN_ID_1=$RUN1" >> $GITHUB_ENV
 
-          RUN2=$(aws glue start-job-run --job-name "$GLUE_JOB_2" --arguments '{"--CONFIG_PATH":"'"$CONFIG_PATH"'","--extra-py-files":"'"$DEPS_PATH"'"}' --query "JobRunId" --output text)
-          echo "RUN_ID_2=$RUN2" >> $GITHUB_ENV
-
-          RUN3=$(aws glue start-job-run --job-name "$GLUE_JOB_3" --arguments '{"--CONFIG_PATH":"'"$CONFIG_PATH"'","--extra-py-files":"'"$DEPS_PATH"'"}' --query "JobRunId" --output text)
-          echo "RUN_ID_3=$RUN3" >> $GITHUB_ENV
-
-          echo "Jobs lancés : $RUN1 | $RUN2 | $RUN3"
+          echo "Jobs lancés : $RUN1"
 
       # ─────────────────────────────
       # 11. SMOKE TEST
@@ -171,8 +167,6 @@ jobs:
           }
 
           watch_run "$GLUE_JOB_1" "$RUN_ID_1" &
-          watch_run "$GLUE_JOB_2" "$RUN_ID_2" &
-          watch_run "$GLUE_JOB_3" "$RUN_ID_3" &
 
           # Attendre tous les processus et échouer si l'un d'eux échoue
           FAILED=0
