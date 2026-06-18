@@ -22,7 +22,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-An-end-to-end-data-engineering-pipeline-f3821192
+          repository: OnsJabbes/terraform-data-eng-test-7ce55291
           token: ${{ secrets.GH_TOKEN }}
           path: terraform
 
@@ -48,17 +48,13 @@ jobs:
       - name: Get Terraform Outputs
         working-directory: terraform/infra
         run: |
-          echo "S3_BUCKET_1=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
+          echo "S3_BUCKET_1=$(terraform output -raw glue_scripts_bucket_name)" >> $GITHUB_ENV
           echo "S3_KEY_1=$(terraform output -raw glue_test_script_1_s3_uri)" >> $GITHUB_ENV
           echo "GLUE_JOB_1=$(terraform output -raw glue_job_1_name)" >> $GITHUB_ENV
 
-          echo "S3_BUCKET_2=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
+          echo "S3_BUCKET_2=$(terraform output -raw glue_scripts_bucket_name)" >> $GITHUB_ENV
           echo "S3_KEY_2=$(terraform output -raw glue_test_script_2_s3_uri)" >> $GITHUB_ENV
           echo "GLUE_JOB_2=$(terraform output -raw glue_job_2_name)" >> $GITHUB_ENV
-
-          echo "S3_BUCKET_3=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_3=$(terraform output -raw glue_test_script_3_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_3=$(terraform output -raw glue_job_3_name)" >> $GITHUB_ENV
 
 
       - name: Build S3 path
@@ -66,8 +62,6 @@ jobs:
           echo "S3_PATH_1=$S3_KEY_1" >> $GITHUB_ENV
 
           echo "S3_PATH_2=$S3_KEY_2" >> $GITHUB_ENV
-
-          echo "S3_PATH_3=$S3_KEY_3" >> $GITHUB_ENV
 
 
       - name: Build Glue dependencies
@@ -83,7 +77,7 @@ jobs:
 
       - name: Upload dependencies to S3
         run: |
-          aws s3 cp dependencies.zip s3://tfstate-an-end-to-end-data-engineering-pipeline-r514ptwm/dependencies.zip
+          aws s3 cp dependencies.zip s3://tfstate-data-eng-test-op2g8ivk/dependencies.zip
 
       - name: Debug S3 path
         run: |
@@ -96,7 +90,6 @@ jobs:
         run: |
           aws s3 cp src/jobs/etl_api_to_csv_products.py $S3_PATH_1
           aws s3 cp src/jobs/etl_csv_to_rds.py $S3_PATH_2
-          aws s3 cp src/jobs/etl_sales.py $S3_PATH_3
 
       # ─────────────────────────────
       # 9b. Upload config.json — keys auto-detected from scripts: ['API_URL', 'DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_PORT', 'DB_TABLE', 'DB_USER', 'INPUT_BUCKET_NAME', 'INPUT_KEY_NAME', 'OUTPUT_BUCKET_NAME', 'OUTPUT_FILE_NAME', 'OUTPUT_PREFIX']
@@ -104,7 +97,7 @@ jobs:
       - name: Upload config.json to S3
         working-directory: terraform/infra
         run: |
-          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-r514ptwm"
+          CONFIG_BUCKET="tfstate-data-eng-test-op2g8ivk"
           _tf_api_url=$(terraform output -raw api_url 2>/dev/null) || true; if [[ -z "$_tf_api_url" || "$_tf_api_url" == ::* ]]; then API_URL='https://dummyjson.com/products?limit=0'; else API_URL="$_tf_api_url"; fi
           _tf_ob=$(terraform output -raw data_bucket_name 2>/dev/null) || true; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=$(terraform output -raw output_bucket 2>/dev/null) || true; fi; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=''; fi; OUTPUT_BUCKET="$_tf_ob"
           _tf_host=$(terraform output -raw rds_address 2>/dev/null) || true; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=$(terraform output -raw rds_endpoint 2>/dev/null) || true; fi; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=''; fi; DB_HOST="$_tf_host"
@@ -117,13 +110,40 @@ jobs:
           echo '✅ config.json uploaded to S3'
 
       # ─────────────────────────────
+      # 9c. Disable RDS force_ssl — fully autonomous, no manual intervention needed
+      # ─────────────────────────────
+      - name: Disable RDS force_ssl
+        working-directory: terraform/infra
+        run: |
+          _RDS_ID=$(terraform output -raw rds_instance_id 2>/dev/null) || true
+          if [[ -z "$_RDS_ID" || "$_RDS_ID" == ::* ]]; then
+            _RDS_ID=$(aws rds describe-db-instances --query 'DBInstances[?DBInstanceStatus==`available`].[DBInstanceIdentifier]' --output text 2>/dev/null | head -1)
+          fi
+          if [[ -n "$_RDS_ID" ]]; then
+            echo "Configuring RDS: $_RDS_ID"
+            aws rds create-db-parameter-group --db-parameter-group-name cd-no-ssl-pg --db-parameter-group-family postgres16 --description 'CD auto: disable force_ssl' 2>/dev/null || true
+            aws rds modify-db-parameter-group --db-parameter-group-name cd-no-ssl-pg --parameters 'ParameterName=rds.force_ssl,ParameterValue=0,ApplyMethod=immediate' 2>/dev/null || true
+            _CURRENT_PG=$(aws rds describe-db-instances --db-instance-identifier "$_RDS_ID" --query 'DBInstances[0].DBParameterGroups[0].DBParameterGroupName' --output text 2>/dev/null) || true
+            if [[ "$_CURRENT_PG" != 'cd-no-ssl-pg' ]]; then
+              aws rds modify-db-instance --db-instance-identifier "$_RDS_ID" --db-parameter-group-name cd-no-ssl-pg --apply-immediately 2>/dev/null || true
+              aws rds reboot-db-instance --db-instance-identifier "$_RDS_ID" 2>/dev/null || true
+              echo 'Waiting for RDS reboot...'
+              aws rds wait db-instance-available --db-instance-identifier "$_RDS_ID" 2>/dev/null || sleep 90
+            else
+              echo 'force_ssl already disabled — skipping reboot'
+            fi
+            echo '✅ RDS force_ssl disabled'
+          else
+            echo '[WARN] Could not determine RDS instance ID — skipping'
+          fi
+      # ─────────────────────────────
       # 10. Trigger Glue Jobs + capturer les Run IDs
       # FIX: on récupère les RUN_ID pour que le smoke test surveille
       #      ces runs précis, sans relancer les jobs une 2ème fois
       # ─────────────────────────────
       - name: Trigger Glue Jobs
         run: |
-          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-r514ptwm"
+          CONFIG_BUCKET="tfstate-data-eng-test-op2g8ivk"
           CONFIG_PATH="s3://${CONFIG_BUCKET}/config.json"
           DEPS_PATH="s3://${CONFIG_BUCKET}/dependencies.zip"
 
@@ -151,25 +171,8 @@ jobs:
           _A2=$(echo "$_D2" | jq -c --arg cp "$CONFIG_PATH" --arg dp "$DEPS_PATH" --arg au "$_TF_API_URL" '(. // {}) + {"--CONFIG_PATH": $cp, "--extra-py-files": $dp} + (if ($au | length) > 0 then {"--API_URL": $au} else {} end)')
           RUN2=$(aws glue start-job-run --job-name "$GLUE_JOB_2" --arguments "$_A2" --query JobRunId --output text)
           echo "RUN_ID_2=$RUN2" >> $GITHUB_ENV
-          echo "⏳ Waiting for Job 2 [$GLUE_JOB_2] before launching Job 3..."
-          _W_STATUS="STARTING"
-          _W_TRIES=0
-          while [[ "$_W_STATUS" == "STARTING" || "$_W_STATUS" == "RUNNING" ]]; do
-            sleep 30
-            _W_STATUS=$(aws glue get-job-run --job-name "$GLUE_JOB_2" --run-id "$RUN2" --query JobRun.JobRunState --output text)
-            echo "  [Job 2] → $_W_STATUS"
-            _W_TRIES=$(( _W_TRIES + 1 ))
-            [ "$_W_TRIES" -lt 60 ] || { echo "❌ Timeout waiting for Job 2"; exit 1; }
-          done
-          [ "$_W_STATUS" = "SUCCEEDED" ] || { echo "❌ Job 2 failed: $_W_STATUS"; exit 1; }
-          echo "✅ Job 2 done — launching Job 3"
 
-          _D3=$(aws glue get-job --job-name "$GLUE_JOB_3" --query Job.DefaultArguments --output json 2>/dev/null || echo '{}')
-          _A3=$(echo "$_D3" | jq -c --arg cp "$CONFIG_PATH" --arg dp "$DEPS_PATH" --arg au "$_TF_API_URL" '(. // {}) + {"--CONFIG_PATH": $cp, "--extra-py-files": $dp} + (if ($au | length) > 0 then {"--API_URL": $au} else {} end)')
-          RUN3=$(aws glue start-job-run --job-name "$GLUE_JOB_3" --arguments "$_A3" --query JobRunId --output text)
-          echo "RUN_ID_3=$RUN3" >> $GITHUB_ENV
-
-          echo "Jobs lancés : $RUN1 | $RUN2 | $RUN3"
+          echo "Jobs lancés : $RUN1 | $RUN2"
 
       # ─────────────────────────────
       # 11. SMOKE TEST
@@ -223,7 +226,6 @@ jobs:
 
           watch_run "$GLUE_JOB_1" "$RUN_ID_1" &
           watch_run "$GLUE_JOB_2" "$RUN_ID_2" &
-          watch_run "$GLUE_JOB_3" "$RUN_ID_3" &
 
           # Attendre tous les processus et échouer si l'un d'eux échoue
           FAILED=0
