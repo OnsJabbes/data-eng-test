@@ -89,7 +89,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-data-eng-test-a8243d2e
+          repository: OnsJabbes/terraform-data-eng-test-14d26ddb
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Configure AWS Credentials
