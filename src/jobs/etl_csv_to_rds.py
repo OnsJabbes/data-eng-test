@@ -71,7 +71,6 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_rds_engine(config: dict):
     import ssl
-    import pg8000
 
     host = config["DB_HOST"].split(":")[0]
     port = int(config.get("DB_PORT", "5432"))
@@ -80,6 +79,7 @@ def get_rds_engine(config: dict):
     ssl_ctx.verify_mode = ssl.CERT_NONE
 
     def _creator():
+        import pg8000
         return pg8000.connect(
             host=host,
             user=config["DB_USER"],
