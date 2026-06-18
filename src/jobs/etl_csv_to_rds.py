@@ -70,13 +70,27 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 def get_rds_engine(config: dict):
+    import ssl
+    import pg8000
+
     host = config["DB_HOST"].split(":")[0]
-    port = config.get("DB_PORT", "5432")
-    url = (
-        f"postgresql+pg8000://{config['DB_USER']}:{config['DB_PASSWORD']}"
-        f"@{host}:{port}/{config['DB_NAME']}"
-    )
-    return sqlalchemy.create_engine(url, connect_args={"timeout": 10, "ssl_context": True})
+    port = int(config.get("DB_PORT", "5432"))
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+
+    def _creator():
+        return pg8000.connect(
+            host=host,
+            user=config["DB_USER"],
+            password=config["DB_PASSWORD"],
+            database=config["DB_NAME"],
+            port=port,
+            ssl_context=ssl_ctx,
+            timeout=10,
+        )
+
+    return sqlalchemy.create_engine("postgresql+pg8000://", creator=_creator)
 
 def load_to_rds(df: pd.DataFrame, engine, table: str):
     """Chargement final."""
