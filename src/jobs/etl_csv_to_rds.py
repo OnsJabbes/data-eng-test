@@ -76,7 +76,7 @@ def get_rds_engine(config: dict):
         f"postgresql+pg8000://{config['DB_USER']}:{config['DB_PASSWORD']}"
         f"@{host}:{port}/{config['DB_NAME']}"
     )
-    return sqlalchemy.create_engine(url, connect_args={"timeout": 10})
+    return sqlalchemy.create_engine(url, connect_args={"timeout": 10, "ssl_context": True})
 
 def load_to_rds(df: pd.DataFrame, engine, table: str):
     """Chargement final."""
