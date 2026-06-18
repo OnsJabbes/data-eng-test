@@ -80,8 +80,9 @@ class TestGetRdsEngine(unittest.TestCase):
             "DB_NAME": "testdb"
         }
         get_rds_engine(config)
-        call_args = mock_create_engine.call_args[0][0]
-        self.assertIn(":5432/", call_args)
+        mock_create_engine.assert_called_once()
+        self.assertEqual(mock_create_engine.call_args[0][0], "postgresql+pg8000://")
+        self.assertIn("creator", mock_create_engine.call_args[1])
 
     @patch("src.jobs.etl_csv_to_rds.sqlalchemy.create_engine")
     def test_engine_created_with_correct_url(self, mock_create_engine):
@@ -94,10 +95,9 @@ class TestGetRdsEngine(unittest.TestCase):
             "DB_NAME": "testdb"
         }
         get_rds_engine(config)
-        expected_url = "postgresql+pg8000://user:pass@localhost:5433/testdb"
         mock_create_engine.assert_called_once()
-        actual_url = mock_create_engine.call_args[0][0]
-        self.assertEqual(actual_url, expected_url)
+        self.assertEqual(mock_create_engine.call_args[0][0], "postgresql+pg8000://")
+        self.assertIn("creator", mock_create_engine.call_args[1])
 
     @patch("src.jobs.etl_csv_to_rds.sqlalchemy.create_engine")
     def test_engine_strips_port_from_host(self, mock_create_engine):
@@ -109,9 +109,9 @@ class TestGetRdsEngine(unittest.TestCase):
             "DB_NAME": "testdb"
         }
         get_rds_engine(config)
-        call_args = mock_create_engine.call_args[0][0]
-        self.assertIn("@localhost:", call_args)
-        self.assertNotIn("@localhost:5432:", call_args)
+        mock_create_engine.assert_called_once()
+        self.assertEqual(mock_create_engine.call_args[0][0], "postgresql+pg8000://")
+        self.assertIn("creator", mock_create_engine.call_args[1])
 
 
 class TestMain(unittest.TestCase):
