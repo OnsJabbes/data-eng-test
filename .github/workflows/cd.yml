@@ -22,7 +22,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-An-end-to-end-data-engineering-pipeline-e4b065b2
+          repository: OnsJabbes/terraform-An-end-to-end-data-engineering-pipeline-1bf644a4
           token: ${{ secrets.GH_TOKEN }}
           path: terraform
 
@@ -48,7 +48,7 @@ jobs:
       - name: Get Terraform Outputs
         working-directory: terraform/infra
         run: |
-          echo "S3_BUCKET_1=$(terraform output -raw glue_scripts_bucket_name)" >> $GITHUB_ENV
+          echo "S3_BUCKET_1=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
           echo "S3_KEY_1=$(terraform output -raw glue_test_script_s3_uri)" >> $GITHUB_ENV
           echo "GLUE_JOB_1=$(terraform output -raw glue_job_name)" >> $GITHUB_ENV
 
@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload dependencies to S3
         run: |
-          aws s3 cp dependencies.zip s3://tfstate-an-end-to-end-data-engineering-pipeline-ytwmqd52/dependencies.zip
+          aws s3 cp dependencies.zip s3://tfstate-an-end-to-end-data-engineering-pipeline-fqa0k8hs/dependencies.zip
 
       - name: Debug S3 path
         run: |
@@ -92,13 +92,13 @@ jobs:
       - name: Upload config.json to S3
         working-directory: terraform/infra
         run: |
-          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-ytwmqd52"
-          _tf_api_url=$(terraform output -raw api_url 2>/dev/null); if [[ -z "$_tf_api_url" || "$_tf_api_url" == ::* ]]; then API_URL='https://dummyjson.com/products?limit=0'; else API_URL="$_tf_api_url"; fi
-          _tf_ob=$(terraform output -raw data_bucket_name 2>/dev/null); if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=$(terraform output -raw output_bucket 2>/dev/null); fi; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=''; fi; OUTPUT_BUCKET="$_tf_ob"
-          _tf_host=$(terraform output -raw rds_address 2>/dev/null); if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=$(terraform output -raw rds_endpoint 2>/dev/null); fi; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=''; fi; DB_HOST="$_tf_host"
-          _tf_dbname=$(terraform output -raw rds_db_name 2>/dev/null); if [[ -z "$_tf_dbname" || "$_tf_dbname" == ::* ]]; then _tf_dbname=$(terraform output -raw db_name 2>/dev/null); fi; if [[ -z "$_tf_dbname" || "$_tf_dbname" == ::* ]]; then _tf_dbname=''; fi; DB_NAME="$_tf_dbname"
-          _tf_user=$(terraform output -raw rds_username 2>/dev/null); if [[ -z "$_tf_user" || "$_tf_user" == ::* ]]; then _tf_user=$(terraform output -raw db_username 2>/dev/null); fi; if [[ -z "$_tf_user" || "$_tf_user" == ::* ]]; then _tf_user=''; fi; DB_USER="$_tf_user"
-          _tf_pass=$(terraform output -raw rds_password 2>/dev/null); if [[ -z "$_tf_pass" || "$_tf_pass" == ::* ]]; then _tf_pass=$(terraform output -raw db_password 2>/dev/null); fi; if [[ -z "$_tf_pass" || "$_tf_pass" == ::* ]]; then _tf_pass=''; fi; DB_PASS="$_tf_pass"
+          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-fqa0k8hs"
+          _tf_api_url=$(terraform output -raw api_url 2>/dev/null) || true; if [[ -z "$_tf_api_url" || "$_tf_api_url" == ::* ]]; then API_URL='https://dummyjson.com/products?limit=0'; else API_URL="$_tf_api_url"; fi
+          _tf_ob=$(terraform output -raw data_bucket_name 2>/dev/null) || true; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=$(terraform output -raw output_bucket 2>/dev/null) || true; fi; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=''; fi; OUTPUT_BUCKET="$_tf_ob"
+          _tf_host=$(terraform output -raw rds_address 2>/dev/null) || true; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=$(terraform output -raw rds_endpoint 2>/dev/null) || true; fi; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=''; fi; DB_HOST="$_tf_host"
+          _tf_dbname=$(terraform output -raw rds_db_name 2>/dev/null) || true; if [[ -z "$_tf_dbname" || "$_tf_dbname" == ::* ]]; then _tf_dbname=$(terraform output -raw db_name 2>/dev/null) || true; fi; if [[ -z "$_tf_dbname" || "$_tf_dbname" == ::* ]]; then _tf_dbname=''; fi; DB_NAME="$_tf_dbname"
+          _tf_user=$(terraform output -raw rds_username 2>/dev/null) || true; if [[ -z "$_tf_user" || "$_tf_user" == ::* ]]; then _tf_user=$(terraform output -raw db_username 2>/dev/null) || true; fi; if [[ -z "$_tf_user" || "$_tf_user" == ::* ]]; then _tf_user=''; fi; DB_USER="$_tf_user"
+          _tf_pass=$(terraform output -raw rds_password 2>/dev/null) || true; if [[ -z "$_tf_pass" || "$_tf_pass" == ::* ]]; then _tf_pass=$(terraform output -raw db_password 2>/dev/null) || true; fi; if [[ -z "$_tf_pass" || "$_tf_pass" == ::* ]]; then _tf_pass=''; fi; DB_PASS="$_tf_pass"
           export API_URL OUTPUT_BUCKET DB_HOST DB_NAME DB_USER DB_PASS
           python3 -c "import json,os; cfg={'API_URL':os.getenv('API_URL',''),'OUTPUT_BUCKET_NAME':os.getenv('OUTPUT_BUCKET',''),'OUTPUT_PREFIX':'products/processed','OUTPUT_FILE_NAME':'catalog.csv','host':os.getenv('DB_HOST',''),'dbname':os.getenv('DB_NAME',''),'user':os.getenv('DB_USER',''),'password':os.getenv('DB_PASS',''),'port':'5432'}; open('config.json','w').write(json.dumps(cfg,indent=2)); safe=dict(cfg); safe['password']='***'; print('config.json:',json.dumps(safe,indent=2))"
           aws s3 cp config.json s3://$CONFIG_BUCKET/config.json
@@ -111,12 +111,12 @@ jobs:
       # ─────────────────────────────
       - name: Trigger Glue Jobs
         run: |
-          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-ytwmqd52"
+          CONFIG_BUCKET="tfstate-an-end-to-end-data-engineering-pipeline-fqa0k8hs"
           CONFIG_PATH="s3://${CONFIG_BUCKET}/config.json"
           DEPS_PATH="s3://${CONFIG_BUCKET}/dependencies.zip"
 
           # Try to get API_URL from Terraform outputs (used by job 1 to call the source API)
-          _tf_tmp=$(terraform -chdir=terraform/infra output -raw api_url 2>/dev/null); if [[ -z "$_tf_tmp" || "$_tf_tmp" == ::* ]]; then _tf_tmp=$(terraform -chdir=terraform/infra output -raw API_URL 2>/dev/null); fi; if [[ "$_tf_tmp" == ::* ]]; then _tf_tmp=''; fi; _TF_API_URL="$_tf_tmp"
+          _tf_tmp=$(terraform -chdir=terraform/infra output -raw api_url 2>/dev/null) || true; if [[ -z "$_tf_tmp" || "$_tf_tmp" == ::* ]]; then _tf_tmp=$(terraform -chdir=terraform/infra output -raw API_URL 2>/dev/null) || true; fi; if [[ "$_tf_tmp" == ::* ]]; then _tf_tmp=''; fi; _TF_API_URL="$_tf_tmp"
 
           _D1=$(aws glue get-job --job-name "$GLUE_JOB_1" --query Job.DefaultArguments --output json 2>/dev/null || echo '{}')
           _A1=$(echo "$_D1" | jq -c --arg cp "$CONFIG_PATH" --arg dp "$DEPS_PATH" --arg au "$_TF_API_URL" '(. // {}) + {"--CONFIG_PATH": $cp, "--extra-py-files": $dp} + (if ($au | length) > 0 then {"--API_URL": $au} else {} end)')
