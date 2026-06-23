@@ -22,7 +22,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-data-eng-test-919303d0
+          repository: OnsJabbes/terraform-data-eng-test-9b7ba3dd
           token: ${{ secrets.GH_TOKEN }}
           path: terraform
 
@@ -50,13 +50,9 @@ jobs:
       - name: Get Terraform Outputs
         working-directory: terraform/infra
         run: |
-          _sb_1=$(terraform output -raw glue_scripts_bucket_name 2>/dev/null) || true
+          _sb_1=$(terraform output -raw scripts_bucket_name 2>/dev/null) || true
           if [[ -z "$_sb_1" || "$_sb_1" == ::* || "$_sb_1" == None ]]; then _sb_1="$CONFIG_BUCKET"; fi
-          echo "S3_BUCKET_1=$_sb_1" >> $GITHUB_ENV
-          _sk_1=$(terraform output -raw glue_test_script_s3_uri 2>/dev/null) || true
-          if [[ -z "$_sk_1" || "$_sk_1" == ::* || "$_sk_1" == None ]]; then _sk_1="s3://$_sb_1/scripts/etl_api_to_csv_products.py"; fi
-          echo "S3_KEY_1=$_sk_1" >> $GITHUB_ENV
-          _glue_job_1=$(terraform output -raw glue_job_name 2>/dev/null) || true
+          _glue_job_1=$(terraform output -raw glue_job_1_name 2>/dev/null) || true
           if [[ -z "$_glue_job_1" || "$_glue_job_1" == ::* || "$_glue_job_1" == None ]]; then
             _glue_job_1=$(terraform output -raw glue_job_1_name 2>/dev/null) || true
           fi
@@ -65,6 +61,13 @@ jobs:
             _glue_job_1=$(aws glue list-jobs --output json 2>/dev/null | python3 -c "import json,sys; jobs=json.load(sys.stdin).get('JobNames',[]); sfx='$_deploy_suffix'; matched=[j for j in jobs if sfx and sfx in j]; matched.sort(); print(matched[0] if 0<len(matched) else '')" 2>/dev/null) || true
           fi
           echo "GLUE_JOB_1=$_glue_job_1" >> $GITHUB_ENV
+          _sk_1=$(terraform output -raw glue_test_script_1_s3_uri 2>/dev/null) || true
+          if [[ -z "$_sk_1" || "$_sk_1" == ::* || "$_sk_1" == None ]]; then
+            _sk_1=$(aws glue get-job --job-name "$_glue_job_1" --query Job.Command.ScriptLocation --output text 2>/dev/null) || true
+          fi
+          if [[ -z "$_sk_1" || "$_sk_1" == ::* || "$_sk_1" == None ]]; then _sk_1="s3://$_sb_1/scripts/etl_api_to_csv_products.py"; fi
+          echo "S3_KEY_1=$_sk_1" >> $GITHUB_ENV
+          echo "S3_BUCKET_1=$_sb_1" >> $GITHUB_ENV
 
 
       - name: Build S3 path
