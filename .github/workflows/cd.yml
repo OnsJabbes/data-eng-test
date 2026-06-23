@@ -22,7 +22,7 @@ jobs:
       - name: Checkout Terraform Repo
         uses: actions/checkout@v4
         with:
-          repository: OnsJabbes/terraform-data-eng-test-cdf1d0f9
+          repository: OnsJabbes/terraform-data-eng-test-0085b15b
           token: ${{ secrets.GH_TOKEN }}
           path: terraform
 
@@ -49,16 +49,16 @@ jobs:
         working-directory: terraform/infra
         run: |
           echo "S3_BUCKET_1=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_1=$(terraform output -raw glue_test_script_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_1=$(terraform output -raw glue_job1_arn)" >> $GITHUB_ENV
+          echo "S3_KEY_1=$(terraform output -raw glue_test_script_1_s3_uri)" >> $GITHUB_ENV
+          echo "GLUE_JOB_1=$(terraform output -raw glue_job_1_name)" >> $GITHUB_ENV
 
           echo "S3_BUCKET_2=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_2=$(terraform output -raw glue_test_script_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_2=$(terraform output -raw glue_job2_arn)" >> $GITHUB_ENV
+          echo "S3_KEY_2=$(terraform output -raw glue_test_script_2_s3_uri)" >> $GITHUB_ENV
+          echo "GLUE_JOB_2=$(terraform output -raw glue_job_2_name)" >> $GITHUB_ENV
 
           echo "S3_BUCKET_3=$(terraform output -raw scripts_bucket_name)" >> $GITHUB_ENV
-          echo "S3_KEY_3=$(terraform output -raw glue_test_script_s3_uri)" >> $GITHUB_ENV
-          echo "GLUE_JOB_3=$(terraform output -raw glue_job3_arn)" >> $GITHUB_ENV
+          echo "S3_KEY_3=$(terraform output -raw glue_test_script_3_s3_uri)" >> $GITHUB_ENV
+          echo "GLUE_JOB_3=$(terraform output -raw glue_job_3_name)" >> $GITHUB_ENV
 
 
       - name: Build S3 path
@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload dependencies to S3
         run: |
-          aws s3 cp dependencies.zip s3://tfstate-data-eng-test-r0pg5o6r/dependencies.zip
+          aws s3 cp dependencies.zip s3://tfstate-data-eng-test-4qwkr4td/dependencies.zip
 
       - name: Debug S3 path
         run: |
@@ -104,7 +104,7 @@ jobs:
       - name: Upload config.json to S3
         working-directory: terraform/infra
         run: |
-          CONFIG_BUCKET="tfstate-data-eng-test-r0pg5o6r"
+          CONFIG_BUCKET="tfstate-data-eng-test-4qwkr4td"
           _tf_api_url=$(terraform output -raw api_url 2>/dev/null) || true; if [[ -z "$_tf_api_url" || "$_tf_api_url" == ::* ]]; then API_URL='https://dummyjson.com/products?limit=0'; else API_URL="$_tf_api_url"; fi
           _tf_ob=$(terraform output -raw data_bucket_name 2>/dev/null) || true; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=$(terraform output -raw output_bucket 2>/dev/null) || true; fi; if [[ -z "$_tf_ob" || "$_tf_ob" == ::* ]]; then _tf_ob=''; fi; OUTPUT_BUCKET="$_tf_ob"
           _tf_host=$(terraform output -raw rds_address 2>/dev/null) || true; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=$(terraform output -raw rds_endpoint 2>/dev/null) || true; fi; if [[ -z "$_tf_host" || "$_tf_host" == ::* ]]; then _tf_host=$(aws rds describe-db-instances --query 'DBInstances[?DBInstanceStatus==`available`] | sort_by(@, &InstanceCreateTime)[-1].Endpoint.Address' --output text 2>/dev/null) || true; fi; if [[ "$_tf_host" == "None" || "$_tf_host" == ::* ]]; then _tf_host=''; fi; DB_HOST="$_tf_host"
@@ -150,7 +150,7 @@ jobs:
       # ─────────────────────────────
       - name: Trigger Glue Jobs
         run: |
-          CONFIG_BUCKET="tfstate-data-eng-test-r0pg5o6r"
+          CONFIG_BUCKET="tfstate-data-eng-test-4qwkr4td"
           CONFIG_PATH="s3://${CONFIG_BUCKET}/config.json"
           DEPS_PATH="s3://${CONFIG_BUCKET}/dependencies.zip"
 
