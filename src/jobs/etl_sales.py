@@ -1,22 +1,25 @@
 def run_job():
     import sys
+    import io
     import json
     import boto3
+    import pandas as pd
     from urllib.parse import urlparse
 
-    from pyspark.context import SparkContext
-    from awsglue.context import GlueContext
-    from awsglue.utils import getResolvedOptions
+    try:
+        from awsglue.utils import getResolvedOptions
+    except ImportError:
+        import argparse
+        def getResolvedOptions(argv, options):
+            parser = argparse.ArgumentParser()
+            for opt in options:
+                parser.add_argument(f"--{opt}", required=False)
+            args, _ = parser.parse_known_args(argv[1:])
+            return {opt: getattr(args, opt) for opt in options if getattr(args, opt) is not None}
 
-    # -----------------------------
-    # Args Glue
-    # -----------------------------
     args = getResolvedOptions(sys.argv, ['CONFIG_PATH'])
     config_path = args['CONFIG_PATH']
 
-    # -----------------------------
-    # Read config from S3
-    # -----------------------------
     parsed = urlparse(config_path)
     bucket = parsed.netloc
     key = parsed.path.lstrip('/')
@@ -26,31 +29,18 @@ def run_job():
     config = json.loads(response["Body"].read().decode("utf-8"))
 
     output_bucket = config["OUTPUT_BUCKET_NAME"]
-    output_path = f"s3://{output_bucket}/output/"
 
-    # -----------------------------
-    # Spark / Glue
-    # -----------------------------
-    sc = SparkContext()
-    glueContext = GlueContext(sc)
-    spark = glueContext.spark_session
+    df = pd.DataFrame({"number": range(1, 21)})
 
-    # -----------------------------
-    # Data kjhdkhkjdshksd  djkhdkjs ds
-    # -----------------------------
-    data = [(i,) for i in range(1, 21)]
-    df = spark.createDataFrame(data, ["number"])
-    df = df.coalesce(1)
+    buf = io.StringIO()
+    df.to_csv(buf, index=False)
 
-    # -----------------------------
-    # Write CSV
-    # -----------------------------
-    df.write \
-        .mode("overwrite") \
-        .option("header", "true") \
-        .csv(output_path)
-
-    print(f"Data written to: {output_path}")
+    s3.put_object(
+        Bucket=output_bucket,
+        Key="output/sales_data.csv",
+        Body=buf.getvalue().encode("utf-8"),
+    )
+    print(f"Data written to s3://{output_bucket}/output/sales_data.csv")
 
 
 if __name__ == "__main__":
