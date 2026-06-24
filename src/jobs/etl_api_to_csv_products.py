@@ -238,11 +238,7 @@ def main():
     uri = save_to_s3(df_clean, output_bucket, output_key)
     logger.info("DONE -> %s", uri)
 
-#test 1
-#test 2
-#test 3
-#test 4
-#test 5
+#test second push
 
 
 if __name__ == "__main__":
