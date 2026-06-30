@@ -136,7 +136,7 @@ def _rating_label(rate: float) -> str:
     if rate < 4.0:
         return "medium"
     return "high"
-
+#test
 
 # ─────────────────────────────────────────────
 # TRANSFORM  ← CORRIGÉ POUR DUMMYJSON
