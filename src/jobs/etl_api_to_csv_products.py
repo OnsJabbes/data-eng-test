@@ -100,6 +100,8 @@ def fetch_products(api_url: str) -> list[dict]:
 
     payload = response.json()
 
+    #testtttttttt
+
     # ← différence clé : DummyJSON wrappe dans {"products": [...]}
     if isinstance(payload, dict) and "products" in payload:
         products = payload["products"]
